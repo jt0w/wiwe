@@ -34,9 +34,10 @@
               vulkan-headers
               libxkbcommon
               wayland
-              xorg.libX11
-              xorg.libXcursor
-              xorg.libXfixes
+              libX11
+              libXcursor
+              libXfixes
+              libxcb
               libGL
               pkg-config
             ];

@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -55,18 +56,18 @@ type GeminiResponse struct {
 }
 
 // gemini://ghost/...:PORT
-func ParseGeminiRequest(url string, port int) (GeminiRequest, bool) {
+func ParseGeminiRequest(url string, port int) (GeminiRequest, error) {
 	trimmed_url := strings.TrimPrefix(url, PREFIX)
 	host := host_from_string(trimmed_url)
 	if trimmed_url == url {
-		return GeminiRequest{}, false
+		return GeminiRequest{}, errors.New("Invalid Url")
 	}
 
 	return GeminiRequest{
 		Url:  url,
 		Host: host,
 		Port: port,
-	}, true
+	}, nil
 }
 
 func host_from_string(url string) string {
@@ -92,7 +93,7 @@ func MakeGeminiQuery(req GeminiRequest) GeminiResponse {
 		panic(err)
 	}
 
-	url_buf := []byte(fmt.Sprintf("%s\r\n", req.Url))
+	url_buf := fmt.Appendf(nil, "%s\r\n", req.Url)
 
 	_, err = conn.Write(url_buf)
 	if err != nil {
@@ -100,7 +101,18 @@ func MakeGeminiQuery(req GeminiRequest) GeminiResponse {
 	}
 	buf := read_response(conn)
 
+
 	code, _ := strconv.Atoi(strings.Split(buf, " ")[0])
+	switch code {
+	case 31:
+		url := strings.Split(buf, " ")[1]
+		req, err = ParseGeminiRequest(url, PORT)
+		if err != nil{
+			// TODO: return
+			panic(err)
+		}
+		return MakeGeminiQuery(req)
+	}
 	return GeminiResponse{
 		StatusCode: statuscode(code),
 		Body:       buf,
