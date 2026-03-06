@@ -27,12 +27,13 @@ import (
 	"gioui.org/widget/material"
 )
 
-type State struct {
+type GlobalState struct {
 	Url string
 	Res gemini.GeminiResponse
+	History []string
 }
 
-var STATE = State{}
+var State = GlobalState{}
 
 //go:embed fonts/Iosevkajt0w-Regular.ttf
 var DefaultFontBytes []byte
@@ -61,7 +62,7 @@ func main() {
 		fmt.Printf("ERROR: Did not specify url\n")
 		os.Exit(1)
 	}
-	STATE.Url = args[0]
+	State.Url = args[0]
 
 	NewReq()
 
@@ -79,12 +80,14 @@ func main() {
 var list layout.List
 
 func NewReq() error {
-	req, err := gemini.ParseGeminiRequest(STATE.Url, gemini.PORT)
+	State.History = append(State.History, State.Url)
+	log.Printf("%v\n", State.History);
+	req, err := gemini.ParseGeminiRequest(State.Url, gemini.PORT)
 	if err != nil {
 		return err
 	}
 
-	STATE.Res = gemini.MakeGeminiQuery(req)
+	State.Res = gemini.MakeGeminiQuery(req)
 	return nil
 }
 
@@ -92,7 +95,7 @@ func display(w *app.Window) error {
 	theme := material.NewTheme()
 	theme.Bg = color.NRGBA{18, 18, 18, 255}
 	theme.Shaper = text.NewShaper(text.WithCollection([]font.FontFace{DefaultFont}))
-	buf := strings.ToValidUTF8(STATE.Res.Body, "")
+	buf := strings.ToValidUTF8(State.Res.Body, "")
 	lines := strings.Split(buf, "\n")
 	for i, line := range lines {
 		lines[i] = cleanLine(line)
@@ -102,8 +105,7 @@ func display(w *app.Window) error {
 		links = make([]widget.Clickable, len(lines))
 	}
 	var ops op.Ops
-	lastUrl := STATE.Url
-	history := ""
+	lastUrl := State.Url
 	for {
 		ev := w.Event()
 		switch e := ev.(type) {
@@ -112,16 +114,15 @@ func display(w *app.Window) error {
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 
-			if lastUrl != STATE.Url {
+			if lastUrl != State.Url {
 				NewReq()
-				buf = strings.ToValidUTF8(STATE.Res.Body, "")
+				buf = strings.ToValidUTF8(State.Res.Body, "")
 				lines = strings.Split(buf, "\n")
 				for i, line := range lines {
 					lines[i] = cleanLine(line)
 				}
 				links = make([]widget.Clickable, len(lines))
-				history = lastUrl
-				lastUrl = STATE.Url
+				lastUrl = State.Url
 			}
 
 
@@ -135,7 +136,10 @@ func display(w *app.Window) error {
 				if keyEvent.(key.Event).State == key.Press {
 					switch keyEvent.(key.Event).Name {
 					case "H":
-						STATE.Url = history
+						if (len(State.History) > 1) {
+							State.Url = State.History[len(State.History) - 2]
+							State.History = State.History[:len(State.History) - 2]
+						}
 					}
 				}
 			}
@@ -156,9 +160,9 @@ func display(w *app.Window) error {
 						url = strings.TrimSpace(url)
 						url = strings.Fields(url)[0]
 						if strings.HasPrefix(url, "gemini://") {
-							STATE.Url = url
+							State.Url = url
 						} else {
-							STATE.Url = fmt.Sprintf("%s/%s", STATE.Url, url)
+							State.Url = fmt.Sprintf("%s/%s", State.Url, url)
 						}
 					}
 
