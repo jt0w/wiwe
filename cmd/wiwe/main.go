@@ -16,6 +16,7 @@ import (
 	"gioui.org/font"
 	_ "gioui.org/font/gofont"
 	"gioui.org/font/opentype"
+	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -102,6 +103,7 @@ func display(w *app.Window) error {
 	}
 	var ops op.Ops
 	lastUrl := STATE.Url
+	history := ""
 	for {
 		ev := w.Event()
 		switch e := ev.(type) {
@@ -118,7 +120,24 @@ func display(w *app.Window) error {
 					lines[i] = cleanLine(line)
 				}
 				links = make([]widget.Clickable, len(lines))
+				history = lastUrl
 				lastUrl = STATE.Url
+			}
+
+
+			for {
+				keyEvent, ok := gtx.Event (
+					key.Filter{Name: "H"},
+				)
+				if !ok {
+					break
+				}
+				if keyEvent.(key.Event).State == key.Press {
+					switch keyEvent.(key.Event).Name {
+					case "H":
+						STATE.Url = history
+					}
+				}
 			}
 
 			DrawRect(clip.Rect{Max: image.Pt(gtx.Constraints.Max.X, gtx.Constraints.Max.Y)}, theme.Bg, &ops)
@@ -165,13 +184,13 @@ func DrawRect(rect clip.Rect, color color.NRGBA, ops *op.Ops) {
 }
 
 func cleanLine(s string) string {
-    return strings.Map(func(r rune) rune {
-        if r == '\t' || r == '\r' {
-            return ' '
-        }
-        if r < 32 || r == 127 { // control characters
-            return -1 // drop
-        }
-        return r
-    }, s)
+	return strings.Map(func(r rune) rune {
+		if r == '\t' || r == '\r' {
+			return ' '
+		}
+		if r < 32 || r == 127 { // control characters
+			return -1 // drop
+		}
+		return r
+	}, s)
 }
